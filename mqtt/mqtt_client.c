@@ -18,9 +18,15 @@
 #include "lwip/dns.h"
 #include "lwip/altcp_tls.h"
 
+#//#define WIFI_SSID "RT-AC51U_CC_2G"
+//#define WIFI_PASSWORD "camera_5697"
+
 #define WIFI_SSID "embarcados-IoT"
 #define WIFI_PASSWORD "Saciperer3"
-#define MQTT_SERVER "broker.hivemq.com"
+//#define MQTT_SERVER "192.168.50.248"
+
+#define MQTT_SERVER "broker.mqtt.cool" 
+
 
 // Temperature
 #ifndef TEMPERATURE_UNITS
@@ -99,6 +105,7 @@ typedef struct {
 /* References for this implementation:
  * raspberry-pi-pico-c-sdk.pdf, Section '4.1.1. hardware_adc'
  * pico-examples/adc/adc_console/adc_console.c */
+
 static float read_onboard_temperature(const char unit) {
 
     /* 12-bit conversion, assume max value == ADC_VREF == 3.3 V */
@@ -142,6 +149,46 @@ static void control_led(MQTT_CLIENT_DATA_T *state, bool on) {
 
     mqtt_publish(state->mqtt_client_inst, full_topic(state, "/led/state"), message, strlen(message), MQTT_PUBLISH_QOS, MQTT_PUBLISH_RETAIN, pub_request_cb, state);
 }
+
+
+// ---------------------------------
+
+
+static uint16_t read_ldr_raw() {
+    adc_select_input(0);         
+    uint16_t raw = adc_read();
+    return raw;
+}
+
+static void publish_luminosity(MQTT_CLIENT_DATA_T *state) {
+    static uint16_t old_value = 0xFFFF;
+
+    uint16_t raw = read_ldr_raw();
+
+    if (raw != old_value) {
+        old_value = raw;
+
+        char msg[16];
+        snprintf(msg, sizeof(msg), "%u", raw);
+
+        const char *topic = full_topic(state, "/luminosidade");
+
+        INFO_printf("Publishing %s → %s\n", msg, topic);
+
+        mqtt_publish(
+            state->mqtt_client_inst,
+            topic,
+            msg,
+            strlen(msg),
+            MQTT_PUBLISH_QOS,
+            MQTT_PUBLISH_RETAIN,
+            pub_request_cb,
+            state
+        );
+    }
+}
+
+// ---------------------------------------
 
 static void publish_temperature(MQTT_CLIENT_DATA_T *state) {
     static float old_temperature;
@@ -224,7 +271,7 @@ static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len
 
 static void temperature_worker_fn(async_context_t *context, async_at_time_worker_t *worker) {
     MQTT_CLIENT_DATA_T* state = (MQTT_CLIENT_DATA_T*)worker->user_data;
-    publish_temperature(state);
+    publish_luminosity(state);
     async_context_add_at_time_worker_in_ms(context, worker, TEMP_WORKER_TIME_S * 1000);
 }
 static async_at_time_worker_t temperature_worker = { .do_work = temperature_worker_fn };
@@ -297,8 +344,8 @@ int main(void) {
     INFO_printf("mqtt client starting\n");
 
     adc_init();
-    adc_set_temp_sensor_enabled(true);
-    adc_select_input(4);
+    adc_gpio_init(26); 
+    adc_select_input(0);
 
     static MQTT_CLIENT_DATA_T state;
 

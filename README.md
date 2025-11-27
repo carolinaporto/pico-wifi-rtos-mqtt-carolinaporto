@@ -97,17 +97,17 @@ Compile e carregue o código para a Pico.
 A Pico irá publicar temperatura no tópico `/temperature`:  
 
 ```bash
-mosquitto_sub -h [IP-DO-BROKER] -t '/temperature'
+mosquitto_sub -h broker.hivemq.com -t '/temperature'
 ```
 
 Envie comandos para o LED:  
 
 ```bash
 # Para ligar o LED
-mosquitto_pub -h [IP-DO-BROKER] -t '/led' -m on
+mosquitto_pub -h broker.hivemq.com -t '/led' -m on
 
 # Para desligar o LED
-mosquitto_pub -h lIP-DO-BROKER] -t '/led' -m off
+mosquitto_pub -h [IP-DO-BROKER] -t '/led' -m off
 ```
 Observando o status do LED:
 
